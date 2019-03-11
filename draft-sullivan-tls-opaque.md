@@ -1,7 +1,7 @@
 ---
 title: TODO - Your title
 abbrev: TODO - Abbreviation
-docname: draft-sullivan-tls-opaque
+docname: draft-sullivan-tls-opaque-latest
 category: info
 
 ipr: trust200902
