@@ -1,6 +1,6 @@
 ---
-title: Usage of OPAQUE with TLS 1.3
-abbrev: TLS 1.3 OPAQUE
+title: OPAQUE via Exported Authenticators with TLS 1.3
+abbrev: TLS 1.3 OPAQUE-EA
 docname: draft-sullivan-tls-opaque-latest
 category: std
 
@@ -34,7 +34,6 @@ author:
        email: rlb@ipv.sx
 
 normative:
-  I-D.ietf-httpbis-http2-secondary-certs:
   RFC2119:
   RFC8174:
   RFC4868:
@@ -48,7 +47,7 @@ informative:
   I-D.barnes-tls-pake:
   I-D.ietf-tls-esni:
   I-D.irtf-cfrg-spake2:
-  I-D.sullivan-cfrg-voprf:
+  I-D.irtf-cfrg-voprf:
   opaque-paper:
     title: "OPAQUE: An Asymmetric PAKE Protocol Secure Against Pre-Computation Attacks"
     date: 2018
@@ -118,7 +117,6 @@ A set of parameters is chosen. This includes an AuthEnc function for key encapsu
 
 * U generates an "envelope" EnvU defined as
 
-
 ~~~~~
 EnvU = AuthEnc(RwdU; PrivU, PubU, PubS)
 ~~~~~
@@ -141,7 +139,7 @@ The encryption for EnvU is required to be a key-committing authenticated encrypt
 
 # TLS extensions
 
-We define several TLS extensions to signal support for OPAQUE and transport the parameters. The extensions used here have a similar structure to those described in Usage of PAKE with TLS 1.3 [I-D.barnes-tls-pake]. The permitted messages that these extensions are allowed and the expected protocol flows are described below.
+We define several TLS extensions to signal support for OPAQUE and transport the parameters. The extensions used here have a similar structure to those described in Usage of PAKE with TLS 1.3 {{I-D.barnes-tls-pake}}. The permitted messages that these extensions are allowed and the expected protocol flows are described below.
 
 This document defines the following extension code points.
 
@@ -322,7 +320,7 @@ If the server would like to then establish mutual authentication, it can do the 
 1. Server creates Authenticator Request with CH extension PAKEClientAuth (identity)
 2. Client creates Exported Authenticator with OPAQUE-Sign Certificate and CertificateVerify (signed with PrivU)
 
-Support for Exported Authenticators is negotiated at the application layer. For example, OPAQUE-Sign in EAs could be defined as an extension to Secondary Certificates in HTTP/2 [I-D.ietf-httpbis-http2-secondary-certs].
+Support for Exported Authenticators is negotiated at the application layer.
 
 # Summary of properties
 
@@ -333,54 +331,6 @@ Support for Exported Authenticators is negotiated at the application layer. For 
     OPAQUE-3DH-Cert | no | yes | no | no | 1-RTT
     OPAQUE-HMQV | no | no | no | no | 1-RTT
     OPAQUE-HMQV-Cert | no | yes | no | no | 1-RTT
-
-# Example OPRF {#example-oprf}
-
-This is an example OPRF instantiation based on the ECOPRF-P256-HKDF-SHA256-SSWU ciphersuite in [I-D.sullivan-cfrg-voprf]. We use additive group notation in this description because we specifically target the elliptic curve case. All operations can be replaced with their multiplicative group counterparts.
-
-The example ECOPRF-P256-HKDF-SHA256-SSWU instantiation uses the following parameters:
-
-- Curve: SECP256K1 curve
-
-- H_1: H2C-P256-SHA256-SSWU- [I-D.sullivan-cfrg-voprf]
-- label: voprf_h2c
-
-
-- H_2: SHA256
-
-See [I-D.sullivan-cfrg-voprf] for more details about how each of the above components are used. In the following we will use the functions OPRF_Blind, OPRF_Sign, OPRF_Unblind, OPRF_Finalize that are defined in the same document.
-
-## OPRF_1
-
-Let p be the prime order of the base field of the curve that is used (e.g. 2^256 - 2^224 + 2^192 + 2^96 - 1 for P-256). Let I2OSP, OS2IP be functions as defined in {{?RFC8017}}. Then OPRF_1 is computed using the OPRF_Blind function on the password P follows:
-
- 1.  r <-$ GF(p)
- 2.  M := rH_1(P)
- 3.  Output (r, M)
-
-H_1 = hash-to-curve(P) =
- 1. t1 = H("h2c" || label || I2OSP(len(x), 4) || P)
- 2. t2 = OS2IP(t1)
- 3. y = t^2 mod p
- 4. H_1(P) = map2curve_simple_swu(y)
- 5. M = rH_1(P)
-
-The client keeps the blind r, and sends the OPRF_1 value M as an EllipticCurve point {{!TLS13}}.
-
-## OPRF_2
-
-The server now computes OPRF_2 by applying OPRF_Sign on the received message M:
- 1. Z := kM
- 2. Output Z
-Note that the server should multiply M by the cofactor of the given curve before it outputs Z. In the case of P-256, this cofactor is equal to 1 and so it is not necessary.
-
-The output Z of OPRF_2 is sent as an EllipticCurve point `[]` back to the client.
-
-When the client receives the output of OPRF_2, it derives the envelope decryption key using OPRF_Unblind followed by OPRF_Finalize.
-
- 1. N := (1/r)Z (OPRF_Unblind)
- 2. y := H_2(P, N) (OPRF_Finalize).
-Here, we require that N is serialized before it is input to H_2.  The client can now stores (P, y) for future usage.
 
 
 # Privacy considerations
