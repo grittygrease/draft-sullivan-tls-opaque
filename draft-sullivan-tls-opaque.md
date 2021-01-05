@@ -115,7 +115,7 @@ OPRF private key as salt, making it resistant to pre-computation attacks on the 
 
 TLS 1.3 provides a KCI-secure key agreement algorithm suitable for use with OPAQUE. This document describes two
 instantiations of OPAQUE in TLS 1.3: one based on digital signatures, called OPAQUE-Sign, and one on Diffie-Hellman
-key agreement, called OPAQUE-3DH.
+key agreement, called OPAQUE-KEX.
 
 OPAQUE consists of two distinct phases: password registration and authentication. We will describe the
 mechanisms for password registration in this document but it is assumed to have been done outside of a
@@ -399,5 +399,4 @@ Correction request: The client_certificate_type row in the IANA TLS ExtensionTyp
 --- back
 
 # Acknowledgments
-
 
