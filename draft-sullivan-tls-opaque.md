@@ -75,9 +75,9 @@ the basis for production systems.
 
 OPAQUE {{opaque-paper}} is a mutual authentication method that enables the establishment
 of an authenticated cryptographic key between a client and server based on a user's
-memorized password, without ever exposing the password to servers or other entities other
-than the client machine and without relying on PKI. OPAQUE leverages a primitive called a
-Strong Asymmetrical Password Authenticated Key Exchange (Strong aPAKE) to provide desirable
+password, without ever exposing the password to servers or other entities other
+than the client machine and without relying on a Public Key Infrastructure (PKI). OPAQUE
+leverages a primitive called a Strong symmetric Password Authenticated Key Exchange (Strong aPAKE) to provide desirable
 properties including resistance to pre-computation attacks in the event of a server compromise.
 
 In some cases, it is desirable to combine password-based authentication with traditional
@@ -136,8 +136,8 @@ also be leveraged to do part of a post-handshake authentication using Exported A
 authentication.
 
 In OPAQUE-KEX, the key pairs are Diffie-Hellman keys and are used to establish a shared secret that is
-fed into the key schedule for the handshake. The handshake continues to use Certificate-based authentication.
-The two methods for establishing the shared key are Diffie-Hellman and HMQV. These instantiations are best
+fed into the key schedule for the handshake. The handshake continues to use Certificate-based authentication
+and establishes the shared key using Diffie-Hellman. This instantiations is best
 suited to use cases in which both password and certificate-based authentication are needed during the
 initial handshake, which is useful in some scenarios. There is no unilateral authentication in this
 context, mutual authentication is demonstrated explicitly through the finished messages.
