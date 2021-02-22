@@ -36,17 +36,15 @@ author:
 normative:
   RFC2119:
   RFC8174:
-  RFC4868:
   RFC7250:
 
 informative:
   RFC2945:
   RFC5869:
-  RFC5930:
-  RFC8017:
   I-D.barnes-tls-pake:
-  I-D.ietf-tls-esni:
+  ECH:
   I-D.irtf-cfrg-spake2:
+  I-D.irtf-cfrg-opaque:
   opaque-paper:
     title: "OPAQUE: An Asymmetric PAKE Protocol Secure Against Pre-Computation Attacks"
     date: 2018
@@ -147,12 +145,12 @@ context, mutual authentication is demonstrated explicitly through the finished m
 Password registration is run between a client U and a server S. It is assumed that U can
 authenticate S during this registration phase (this is the only part in OPAQUE that
 requires some form of authenticated channel, either physical, out-of-band, PKI-based, etc.)
-During this phase, clients run the registration flow in {{I-D.irtf-cfrg-opaque}} using
+During this phase, clients run the registration flow in {{?I-D.irtf-cfrg-opaque}} using
 a specific OPAQUE configuration consisting of a tuple (OPRF, Hash, MHF, AKE). The specific
 AKE is not used during registration. It is only used during login.
 
 During this phase, a specific OPAQUE configuration is chosen, which consists of a tuple
-(OPRF, Hash, MHF, AKE). See {{I-D.irtf-cfrg-opaque}} for details about configuration parameters.
+(OPRF, Hash, MHF, AKE). See {{?I-D.irtf-cfrg-opaque}} for details about configuration parameters.
 In this context, AKE is either OPAQUE-Sign or OPAQUE-KEX.
 
 # Password Authentication
@@ -228,7 +226,7 @@ This document also defines the following set of types;
 Servers use PAKEShareClient.idU to index the user’s record on the server and create
 the PAKEShareServer.response. The types field indicates the set of supported auth
 types by the client. PAKEShareClient.request and PAKEShareServer.response, of type
-CredentialRequest and CredentialResponse, respectively, are defined in {{!I-D.irtf-cfrg-opaque}}.
+CredentialRequest and CredentialResponse, respectively, are defined in {{?I-D.irtf-cfrg-opaque}}.
 
 This document also describes a new CertificateEntry structure that corresponds to an authentication
 via a signature derived using OPAQUE. This structure serves as a placeholder for the
@@ -282,8 +280,10 @@ Given a matching key_share and an identity with a matching supported_group, the 
 as an extension to its EncryptedExtensions. Both parties then derive a shared OPAQUE key as follows:
 
 ~~~~~~~~~~~
- U computes K = H(g^y ^ PrivU || PubU ^ x || PubS ^ PrivU || IdU || IdS )
- S computes K = H(g^x ^ PrivS || PubS ^ y || PubU ^ PrivS || IdU || IdS )
+ U computes
+   K = H(g^y ^ PrivU || PubU ^ x || PubS ^ PrivU || IdU || IdS )
+ S computes
+   K = H(g^x ^ PrivS || PubS ^ y || PubU ^ PrivS || IdU || IdS )
 ~~~~~~~~~~~
 
 IdU, IdS represent the identities of user (sent as identity in PAKEShareClient) and server (Certificate message).
@@ -371,7 +371,7 @@ Support for Exported Authenticators is negotiated at the application layer.
 
 # Summary of properties
 
- Variant \ Property | Identity Hiding | Certificate Authentication | Server-only Auth | Post-handshake auth | Minimum round trips
+ Variant \ Property | Identity hiding | Certificate auth | Server-only auth | Post-handshake auth | Minimum round trips
     OPAQUE-Sign with EA | yes | yes | yes | yes | 2-RTT
     OPAQUE-Sign | no | no | yes | no | 1-RTT
     OPAQUE-KEX | no | no | no | no | 1-RTT
