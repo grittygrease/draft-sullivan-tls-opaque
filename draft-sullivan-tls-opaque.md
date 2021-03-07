@@ -179,11 +179,14 @@ called "opaque_client_auth" and "opaque_server_auth" respectively.
 ~~~~~~~~~~
 
 The "opaque_client_auth" extension contains a `PAKEClientAuthExtension` struct and can only be
-included in the `CertificateRequest` and `Certificate` messages.
+included in the `Certificate` message.
 
 ~~~
   struct {
-    opaque identity<0..2^16-1>;
+    select (Handshake.msg_type) {
+      Certificate:
+        opaque idU<0..2^16-1>;
+    }
   } PAKEClientAuthExtension;
 ~~~
 
@@ -207,7 +210,7 @@ depending on the type.
       ClientHello:
         PAKEShareClient client_shares<0..2^16-1>;
         OPAQUEType types<0..2^16-1>;
-      EncryptedExtensions, Certificate:
+      EncryptedExtensions, Certificate, CertificateRequest:
         PAKEShareServer server_share;
         OPAQUEType type;
     }
@@ -271,12 +274,12 @@ It should be noted that since the identity of the client it is not encrypted as 
 the ClientHello. This may present a privacy problem unless a mechanism like Encrypted Client Hello
 {{?ECH=I-D.ietf-tls-esni}} is created to protect it.
 
-Upon receiving a PAKEServerAuth extension, the server checks to see if it has a matching record for this identity.
+Upon receiving a PAKEServerAuthExtension, the server checks to see if it has a matching record for this identity.
 If the record does not exist, the handshake is aborted with a "illegal_parameter" alert. If the record does exist, but
 the key type of the record does not match any of the supported_groups sent in the key_share extension of the
 ClientHello, an HRR is sent containing the set of valid key types that it found records for.
 
-Given a matching key_share and an identity with a matching supported_group, the server returns its PAKEServerAuth
+Given a matching key_share and an identity with a matching supported_group, the server returns its PAKEServerAuthExtension
 as an extension to its EncryptedExtensions. Both parties then derive a shared OPAQUE key as follows:
 
 ~~~~~~~~~~~
@@ -286,7 +289,8 @@ as an extension to its EncryptedExtensions. Both parties then derive a shared OP
    K = H(g^x ^ PrivS || PubS ^ y || PubU ^ PrivS || IdU || IdS )
 ~~~~~~~~~~~
 
-IdU, IdS represent the identities of user (sent as identity in PAKEShareClient) and server (Certificate message).
+IdU, IdS represent the identities of user (sent as identity in PAKEShareClient) and server (Certificate message,
+and sent ss identity in PAKEShareServer).
 H is the HKDF function agreed upon in the TLS handshake.
 
 The result, K, is then added as an input to the Master Secret in place of the 0 value defined in TLS 1.3.
@@ -337,13 +341,12 @@ struct {
 ~~~~~~~~~~
 
 Given a matching signature_scheme and an identity with a matching key type, the server returns a certificate message
-with type OPAQUE-Sign with PAKEServerAuth as an extension. The private key used in the CertificateVerify message
+with type OPAQUE-Sign with PAKEServerAuthExtension as an extension. The private key used in the CertificateVerify message
 is set to the private key used during account registration, and the client verifies it using the server public key
 contained in the client's envelope.
 
-It is RECOMMENDED that the server includes a CertificateRequest message with a PAKEClientAuth and the identity originally
-sent in the PAKEServerAuth extension from the client hello. On receiving a CertificateRequest message with a PAKEClientAuth
-extension, the client returns a CertificateVerify message signed by PrivC which is validated by the server using PubC.
+It is RECOMMENDED that the server includes a CertificateRequest message with a PAKEClientAuthExtension and the identity originally
+received in the PAKEServerAuthExtension from the client hello. On receiving a CertificateRequest message with a PAKEClientAuthExtension, the client returns a CertificateVerify message signed by the client's private key used during account registration which is validated by the server using the corresponding public key from the client.
 
 # Integration into Exported Authenticators
 
@@ -356,14 +359,14 @@ channel that is typically established with certificate-based authentication. Usi
 additional benefit that it can be triggered at any time after a TLS session has been established, which better fits modern
 web-based authentication mechanism.
 
-The ClientHello contains PAKEServerAuth, PAKEClientAuth with empty identity values to indicate support for these mechanisms.
+The ClientHello contains PAKEServerAuthExtension, PAKEClientAuthExtension with empty identity values to indicate support for these mechanisms.
 
-1. Client creates Authenticator Request with CR extension PAKEServerAuth.
-2. Server creates Exported Authenticator with OPAQUE-Sign (PAKEServerAuth) and CertificateVerify (signed with the OPAQUE private key).
+1. Client creates Authenticator Request with CertificateRequest PAKEServerAuthExtension.
+2. Server creates Exported Authenticator with OPAQUE-Sign (PAKEServerAuthExtension) and CertificateVerify (signed with the OPAQUE private key).
 
 If the server would like to then establish mutual authentication, it can do the following:
 
-1. Server creates Authenticator Request with CH extension PAKEClientAuth (identity)
+1. Server creates Authenticator Request with ClientHello PAKEClientAuthExtension (identity)
 2. Client creates Exported Authenticator with OPAQUE-Sign Certificate and CertificateVerify (signed with user private key derived
   from the envelope).
 
