@@ -74,7 +74,7 @@ the basis for production systems.
 OPAQUE {{opaque-paper}} is a mutual authentication method that enables the establishment
 of an authenticated cryptographic key between a client and server based on a user's
 password, without ever exposing the password to servers or other entities other
-than the client machine and without relying on a Public Key Infrastructure (PKI). OPAQUE
+than the client machine, and without relying on Public Key Infrastructure (PKI). OPAQUE
 leverages a primitive called a Strong symmetric Password Authenticated Key Exchange (Strong aPAKE) to provide desirable
 properties including resistance to pre-computation attacks in the event of a server compromise.
 
@@ -106,22 +106,22 @@ when, and only when, they appear in all capitals, as shown here.
 # OPAQUE
 
 OPAQUE {{opaque-paper}} is a Strong Asymmetric Password-Authenticated Key Exchange (Strong aPAKE) built
-on an oblivious pseudo-random function (OPRF) and authenticated key exchange protocol that is secure
-against key-compromise impersonation (KCI) attacks. Unlike previous PAKE methods such as SRP {{?RFC2945}}
+on an oblivious pseudo-random function (OPRF), and authenticated key exchange protocol that is secure
+against key compromise impersonation (KCI) attacks and provides forward secrecy. Unlike previous PAKE methods such as SRP {{?RFC2945}}
 and SPAKE-2 {{?I-D.irtf-cfrg-spake2}}, which require a public salt value, a Strong aPAKE leverages the
 OPRF private key as salt, making it resistant to pre-computation attacks on the password database stored on the server.
 
-TLS 1.3 provides a KCI-secure key agreement algorithm suitable for use with OPAQUE. This document describes two
+TLS 1.3 provides a KCI-secure key agreement algorithm suitable for usage with OPAQUE. This document describes two
 instantiations of OPAQUE in TLS 1.3: one based on digital signatures, called OPAQUE-Sign, and one on Diffie-Hellman
 key agreement, called OPAQUE-KEX.
 
 OPAQUE consists of two distinct phases: password registration and authentication. We will describe the
-mechanisms for password registration in this document but it is assumed to have been done outside of a
+mechanisms for password registration in this document but it is assumed that it is done outside of a
 TLS connection. During password registration, the client and server establish a shared set of parameters
 for future authentication and two private-public key pairs are generated, one for the client and one for
-the server. The server keeps its private key and stores an encapsulated copy of the client’s key pair
+the server. The server keeps its private key and stores an encapsulated copy of the client’s private key
 along with its own public key in an “envelope” that is encrypted with the result of the OPRF operation.
-Note that it is possible for the server to use the same key for multiple clients. It may be necessary to
+Note that it is possible for the server to use the same private key for multiple clients. It may be necessary to
 permit multiple simultaneous server keys in the even of a key rollover. The client does not store any
 state nor any PKI information.
 
@@ -142,12 +142,13 @@ context, mutual authentication is demonstrated explicitly through the finished m
 
 # Password Registration
 
-Password registration is run between a client U and a server S. It is assumed that U can
-authenticate S during this registration phase (this is the only part in OPAQUE that
+Password registration is run between a client and a server. It is assumed that the client can
+authenticate the server during this registration phase (this is the only part in OPAQUE that
 requires some form of authenticated channel, either physical, out-of-band, PKI-based, etc.)
 During this phase, clients run the registration flow in {{?I-D.irtf-cfrg-opaque}} using
 a specific OPAQUE configuration consisting of a tuple (OPRF, Hash, MHF, AKE). The specific
-AKE is not used during registration. It is only used during login.
+AKE is not used during the offline registration phase. It is only used during the
+online authenticated key exchange phase.
 
 During this phase, a specific OPAQUE configuration is chosen, which consists of a tuple
 (OPRF, Hash, MHF, AKE). See {{?I-D.irtf-cfrg-opaque}} for details about configuration parameters.
@@ -155,7 +156,7 @@ In this context, AKE is either OPAQUE-Sign or OPAQUE-KEX.
 
 # Password Authentication
 
-Password authentication integrates TLS into OPAQUE in such a way that clients prove knowledge
+Password authentication integrates TLS 1.3 into OPAQUE in such a way that clients prove knowledge
 of a password to servers. In this section, we describe TLS extensions that support this integration
 for both OPAQUE-KEX and OPAQUE-Sign.
 
@@ -196,13 +197,14 @@ depending on the type.
 
 ~~~~~~~~~~
   struct {
-    opaque idU<0..2^16-1>;
-    CredentialRequest request;
+    opaque client_identity<0..2^16-1>;
+    KE1 ke1;
   } PAKEShareClient;
 
   struct {
-    opaque idS<0..2^16-1>;
-    CredentialResponse response;
+    opaque server_identity<0..2^16-1>;
+    uint8 server_public_key[Npk];
+    KE2 ke2;
   } PAKEShareServer;
 
   struct {
@@ -226,10 +228,10 @@ This document also defines the following set of types;
   } OPAQUEType;
 ~~~~~~~~~~
 
-Servers use PAKEShareClient.idU to index the user’s record on the server and create
-the PAKEShareServer.response. The types field indicates the set of supported auth
-types by the client. PAKEShareClient.request and PAKEShareServer.response, of type
-CredentialRequest and CredentialResponse, respectively, are defined in {{?I-D.irtf-cfrg-opaque}}.
+Servers use PAKEShareClient.client_identity to index the user’s record on the server and create
+the PAKEShareServer.ke2. The types field indicates the set of supported auth
+types by the client. PAKEShareClient.ke1 and PAKEShareServer.ke2, of type
+KE1 and KE2, respectively, are defined in {{?I-D.irtf-cfrg-opaque}}.
 
 This document also describes a new CertificateEntry structure that corresponds to an authentication
 via a signature derived using OPAQUE. This structure serves as a placeholder for the
@@ -270,31 +272,39 @@ In this mode, OPAQUE private keys are used for key agreement algorithm and the r
 schedule. Password validation is confirmed by the validation of the finished message. These modes can be used
 in conjunction with optional Certificate-based authentication.
 
-It should be noted that since the identity of the client it is not encrypted as it is sent as an extension to
+It should be noted that the identity of the client is not encrypted, as it is sent as an extension to
 the ClientHello. This may present a privacy problem unless a mechanism like Encrypted Client Hello
-{{?ECH=I-D.ietf-tls-esni}} is created to protect it.
+{{?ECH=I-D.ietf-tls-esni}} is used to protect it.
 
 Upon receiving a PAKEServerAuthExtension, the server checks to see if it has a matching record for this identity.
 If the record does not exist, the handshake is aborted with a "illegal_parameter" alert. If the record does exist, but
-the key type of the record does not match any of the supported_groups sent in the key_share extension of the
-ClientHello, an HRR is sent containing the set of valid key types that it found records for.
+the key type of the record (record.client_public_key) does not match any of the supported_groups sent in the key_share
+extension of the ClientHello, a HelloRetryRequest message is sent containing the set of valid key types that it found records for.
 
-Given a matching key_share and an identity with a matching supported_group, the server returns its PAKEServerAuthExtension
-as an extension to its EncryptedExtensions. Both parties then derive a shared OPAQUE key as follows:
+Given a matching key_share and an identity with a matching supported_group, the server returns its PAKEServerAuth
+as an extension to its EncryptedExtensions.
+
+Both parties, then, derive a shared OPAQUE key as follows:
 
 ~~~~~~~~~~~
- U computes
-   K = H(g^y ^ PrivU || PubU ^ x || PubS ^ PrivU || IdU || IdS )
- S computes
-   K = H(g^x ^ PrivS || PubS ^ y || PubU ^ PrivS || IdU || IdS )
+ Client computes:
+   preamble = Preamble(client_identity, state.ke1, server_identity, ke2.inner_ke2)
+   ikm = state.client_secret * ke2.server_keyshare || state.client_secret * server_pub_key || record.client_private_key * ke2.server_keyshare
+   prk = Extract("", ikm)
+   handshake_secret = Derive-Secret(prk, "HandshakeSecret", Hash(preamble))
+
+ Server computes:
+   preamble = Preamble(client_identity, ke1, server_identity, inner_ke2)
+   ikm = server_secret * ke1.client_keyshare || server_private_key * ke1.client_keyshare || server_secret * client_public_key
+   prk = Extract("", ikm)
+   handshake_secret = Derive-Secret(prk, "HandshakeSecret", Hash(preamble))
 ~~~~~~~~~~~
 
-IdU, IdS represent the identities of user (sent as identity in PAKEShareClient) and server (Certificate message,
-and sent ss identity in PAKEShareServer).
-H is the HKDF function agreed upon in the TLS handshake.
+Hash() is the HKDF function agreed upon in the TLS handshake. It means to apply
+the cryptographic hash function to input, producing a fixed-length digest of size Nh bytes.
 
-The result, K, is then added as an input to the Master Secret in place of the 0 value defined in TLS 1.3.
-Specifically,
+The result, `handshake_secret`, is then added as an input to the Master Secret
+in place of the 0 value defined in TLS 1.3. Specifically,
 
 ~~~~~~~~~~~
   0 -> HKDF-Extract = Master Secret
@@ -306,8 +316,8 @@ becomes
   K -> HKDF-Extract = Master Secret
 ~~~~~~~~~~~
 
-In this construction, the finished messages cannot be validated unless the OPAQUE computation was done correctly on
-both sides, authenticating both client and server.
+In this construction, the finished messages cannot be validated unless the OPAQUE
+computation was done correctly on both sides, authenticating both client and server.
 
 ## OPAQUE-Sign
 
